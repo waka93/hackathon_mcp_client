@@ -1,3 +1,5 @@
+import os
+import sys
 import json
 import asyncio
 from contextlib import AsyncExitStack
@@ -9,6 +11,14 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from openai import AsyncOpenAI
 
+
+# Dynamically find the project directory and add it to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))  # Current file's directory
+project_root = os.path.abspath(os.path.join(current_dir, ".."))  # Go one level up
+sys.path.append(project_root)  # Add the project root to sys.path
+
+
+from mcp_client.security_manager import SecurityManager
 
 # Load environment variables
 load_dotenv("../.env")
@@ -26,6 +36,7 @@ class MCPOpenAIClient:
         self.exit_stack = AsyncExitStack()
         self.openai_client = AsyncOpenAI()
         self.model = model
+        self.security_manager = SecurityManager()
 
     # abstract method to connect to the mcp server
     async def connect_to_server(self, server_uri: str):
@@ -89,6 +100,15 @@ class MCPOpenAIClient:
         if assistant_message.tool_calls:
             # Process each tool call
             for tool_call in assistant_message.tool_calls:
+                if await self.security_manager.check_tool_call(
+                    tool_call.function.name,
+                    json.loads(tool_call.function.arguments),
+                ):
+                    print(f"Tool call {tool_call.function.name} approved.")
+                else:
+                    print(f"Tool call {tool_call.function.name} denied.")
+                    return "Tool call denied by security manager."
+
                 # Execute tool call
                 result = await self.session.call_tool(
                     tool_call.function.name,
@@ -132,10 +152,7 @@ class MCPOpenAIClientStdio(MCPOpenAIClient):
             model: The OpenAI model to use.
         """
         # Initialize session and client objects
-        self.session: Optional[ClientSession] = None
-        self.exit_stack = AsyncExitStack()
-        self.openai_client = AsyncOpenAI()
-        self.model = model
+        super().__init__(model=model)
         self.stdio: Optional[Any] = None
         self.write: Optional[Any] = None
 
@@ -180,20 +197,22 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
             model: The OpenAI model to use.
         """
         # Initialize session and client objects
-        self.session: Optional[ClientSession] = None
-        self.exit_stack = AsyncExitStack()
-        self.openai_client = AsyncOpenAI()
-        self.model = model
+        super().__init__(model=model)
 
-    async def connect_to_server(self, server_url: str):
+    async def connect_to_server(
+            self, 
+            server_url: str,
+            headers: Optional[Dict[str, str]] = {},
+        ):
         """Connect to an MCP server using SSE.
 
         Args:
             server_url: URL of the SSE server.
+            headers: Optional headers for the SSE connection.
         """
         # Connect to the server using SSE
         sse_transport = await self.exit_stack.enter_async_context(
-            sse_client(server_url)
+            sse_client(server_url, headers=headers)
         )
         self.session = await self.exit_stack.enter_async_context(
             ClientSession(*sse_transport)
@@ -212,7 +231,7 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
 async def main():
     """Main entry point for the client."""
     client = MCPOpenAIClientSSE()
-    await client.connect_to_server("http://localhost:8050/sse")
+    await client.connect_to_server("http://localhost:8050/sse", headers={})
 
     # Example: Ask about company vacation policy
     query = "What is our company's vacation policy?"
