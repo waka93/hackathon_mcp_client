@@ -3,7 +3,6 @@
 import time
 import os
 import logging
-logging.basicConfig(level=logging.INFO)
 from base64 import b64encode
 
 from Crypto.Hash import SHA256

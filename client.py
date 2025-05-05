@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import logging
 import asyncio
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
@@ -12,7 +13,6 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from openai import AsyncOpenAI, AsyncAzureOpenAI
 
-
 # Dynamically find the project directory and add it to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))  # Current file's directory
 sys.path.append(current_dir)  # Add the project root to sys.path
@@ -20,6 +20,8 @@ sys.path.append(current_dir)  # Add the project root to sys.path
 from security_manager import SecurityManager
 from utils import generate_headers
 from config import Config
+
+logging.basicConfig(level=Config.LOG_LEVEL)
 
 # Load environment variables
 load_dotenv(".env")
@@ -48,7 +50,6 @@ class MCPOpenAIClient:
                 consumer_id=Config.CONSUMER_ID,
                 env=Config.ENV,
             )
-            print(headers)
             self.openai_client = client = AsyncAzureOpenAI(
                 api_key=Config.CONSUMER_ID,
                 api_version=Config.AZURE_OPENAI_API_VERSION,
@@ -59,6 +60,8 @@ class MCPOpenAIClient:
             raise ValueError(f"Unsupported client type: {client}")
         self.model = model
         self.security_manager = SecurityManager()
+        self.history = []
+        self.tools = None
 
     # abstract method to connect to the mcp server
     async def connect_to_server(self, server_uri: str):
@@ -98,24 +101,33 @@ class MCPOpenAIClient:
         Returns:
             The response from OpenAI.
         """
+
+        # Initialize message list with chat history, system prompt and latest user query
+        messages = await self._get_chat_history(20)
+        messages = await self._add_system_prompt(messages, Config.SYSTEM_PROMPT)
+        old_message_len = len(messages)
+
+        messages.append({"role": "user", "content": query})
+
+
+        logging.info(f"chat history: {messages}")
+
         # Get available tools
-        tools = await self.get_mcp_tools()
+        tools = await self._get_tools()        
+        
         # Initial OpenAI API call
         response = await self.openai_client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": query}],
+            messages=messages,
             tools=tools,
             tool_choice="auto",
         )
 
         # Get assistant's response
         assistant_message = response.choices[0].message
-
-        # Initialize conversation with user query and assistant response
-        messages = [
-            {"role": "user", "content": query},
-            assistant_message,
-        ]
+        
+        # Add assistant response
+        messages.append(assistant_message)
 
         # Handle tool calls if present
         if assistant_message.tool_calls:
@@ -125,9 +137,11 @@ class MCPOpenAIClient:
                     tool_call.function.name,
                     json.loads(tool_call.function.arguments),
                 ):
-                    print(f"Tool call {tool_call.function.name} approved.")
+                    logging.info(f"Tool call {tool_call.function.name} approved.")
                 else:
-                    print(f"Tool call {tool_call.function.name} denied.")
+                    logging.info(f"Tool call {tool_call.function.name} denied.")
+                    messages.append({"role": "assistant", "content": f"Tool call {tool_call.function.name} denied by the user."})
+                    self.history.extend(messages[old_message_len:])
                     return "Tool call denied by security manager."
 
                 # Execute tool call
@@ -135,7 +149,7 @@ class MCPOpenAIClient:
                     tool_call.function.name,
                     arguments=json.loads(tool_call.function.arguments),
                 )
-                print(f"Tool call result: {result}")
+                logging.debug(f"Tool call result: {result}")
 
                 # Add tool response to conversation
                 messages.append(
@@ -153,11 +167,46 @@ class MCPOpenAIClient:
                 tools=tools,
                 tool_choice="none",  # Don't allow more tool calls
             )
+            messages.append(final_response.choices[0].message)
+            self.history.extend(messages[old_message_len:])
 
             return final_response.choices[0].message.content
 
         # No tool calls, just return the direct response
+        self.history.extend(messages[old_message_len:])
         return assistant_message.content
+
+    async def _get_chat_history(self, limit: int = 20) -> list:
+        """
+        Get last `limit` turns of chat history
+        """
+        
+        return self.history[-limit:]
+
+
+    async def _get_tools(self) -> list[dict]:
+        """
+        Get available tools from MCP server
+        """
+        if self.tools:
+            return self.tools
+        
+        tools = await self.get_mcp_tools()
+        self.tools = tools
+        return self.tools
+
+    async def _add_system_prompt(self, messages: list, system_prompt: str) -> list:
+        """
+        Add system prompt to the beginning of message list if doesn't exisit
+        """
+        if any([m["role"] == "system" for m in messages if isinstance(m, dict)]):
+            return messages
+        
+        messages.insert(
+            0, 
+            {"role": "system", "content": system_prompt}
+        )
+        return messages
 
     async def cleanup(self):
         """Clean up resources."""
@@ -209,9 +258,9 @@ class MCPOpenAIClientStdio(MCPOpenAIClient):
 
         # List available tools
         tools_result = await self.session.list_tools()
-        print("\nConnected to server with tools:")
+        logging.info("\nConnected to server with tools:")
         for tool in tools_result.tools:
-            print(f"  - {tool.name}: {tool.description}")
+            logging.info(f"  - {tool.name}: {tool.description}")
 
 
 class MCPOpenAIClientSSE(MCPOpenAIClient):
@@ -255,9 +304,9 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
 
         # List available tools
         tools_result = await self.session.list_tools()
-        print("\nConnected to server with tools:")
+        logging.info("\nConnected to server with tools:")
         for tool in tools_result.tools:
-            print(f"  - {tool.name}: {tool.description}")
+            logging.info(f"  - {tool.name}: {tool.description}")
 
 
 async def main():
@@ -265,14 +314,24 @@ async def main():
     client = MCPOpenAIClientSSE(client="azure_openai")
     await client.connect_to_server("http://localhost:9000/sse", headers={})
 
-    # Example: Ask about company vacation policy
-    query = "What is our company's PTO policy?"
-    print(f"\nQuery: {query}")
+    while True:
+        try:
+            logging.warning("Enter your question:")
+            query = input().strip().lower()
+            # Example: Ask about company vacation policy
+            # query = "Can you update this page https://confluence.walmart.com/pages/viewpage.action?pageId=2808261720 by changing the title to Hackathon and content to Hackathon"
 
-    response = await client.prompt(query)
-    print(f"\nResponse: {response}")
+            response = await client.prompt(query)
+            logging.warning(f"\nResponse: {response}")
+
+        except KeyboardInterrupt:
+            break
+
+        except Exception as e:
+            break
 
     await client.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -3,15 +3,14 @@ import json
 import asyncio
 from typing import Any, Dict
 
+from config import Config
+
 class SecurityManager:
     """Define security policies and manage tool calls with rate limiting and user approval."""
 
     def __init__(self):
         # Define security policies for different tools
-        self.tool_policies = {
-            "get_knowledge_base": {"requires_approval": True, "max_calls_per_minute": 5},
-            "add": {"requires_approval": False, "max_calls_per_minute": 20},
-        }
+        self.tool_policies = Config.TOOL_POLICIES
 
         # Rate limiting state
         self.tool_call_counts: Dict[str, Dict[str, Any]] = {}
@@ -27,7 +26,7 @@ class SecurityManager:
             True if the tool call is allowed, False otherwise.
         """
         # Get policy for this tool (default is to require approval)
-        policy = self.tool_policies.get(tool_name, {'requires_approval': True, 'max_calls_per_minute': 10})
+        policy = self.tool_policies.get(tool_name, Config.DEFAULT_TOOL_POLICY)
 
         # Check rate limits
         if not self._check_rate_limit(tool_name, policy['max_calls_per_minute']):
@@ -39,7 +38,7 @@ class SecurityManager:
             return await self._get_user_approval(tool_name, args)
 
         # No approval needed and rate limit not exceeded
-        return True
+        return True        
 
     def _check_rate_limit(self, tool_name: str, max_calls_per_minute: int) -> bool:
         """Check if the tool call exceeds the rate limit.
