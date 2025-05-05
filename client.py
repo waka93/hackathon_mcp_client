@@ -5,36 +5,58 @@ import asyncio
 from contextlib import AsyncExitStack
 from typing import Any, Dict, List, Optional
 
+import httpx
 from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client, StdioServerParameters
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, AsyncAzureOpenAI
 
 
 # Dynamically find the project directory and add it to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))  # Current file's directory
-project_root = os.path.abspath(os.path.join(current_dir, ".."))  # Go one level up
-sys.path.append(project_root)  # Add the project root to sys.path
+sys.path.append(current_dir)  # Add the project root to sys.path
 
-
-from mcp_client.security_manager import SecurityManager
+from security_manager import SecurityManager
+from utils import generate_headers
+from config import Config
 
 # Load environment variables
-load_dotenv("../.env")
+load_dotenv(".env")
 
 class MCPOpenAIClient:
 
-    def __init__(self, model: str = "gpt-4o"):
+    def __init__(
+            self, 
+            model: str = "gpt-4o",
+            client: str = "openai"
+        ):
         """Initialize the OpenAI MCP client.
 
         Args:
             model: The OpenAI model to use.
+            client: The client type (openai or azure_openai).
         """
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        self.openai_client = AsyncOpenAI()
+        if client == "openai":
+            self.openai_client = AsyncOpenAI()
+        elif client == "azure_openai" or client == "azure":
+            headers = generate_headers(
+                private_key_path=Config.LLM_PRIVATE_KEY_PATH,
+                consumer_id=Config.CONSUMER_ID,
+                env=Config.ENV,
+            )
+            print(headers)
+            self.openai_client = client = AsyncAzureOpenAI(
+                api_key=Config.CONSUMER_ID,
+                api_version=Config.AZURE_OPENAI_API_VERSION,
+                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+                http_client = httpx.AsyncClient(verify=False, headers=headers)
+            )
+        else:
+            raise ValueError(f"Unsupported client type: {client}")
         self.model = model
         self.security_manager = SecurityManager()
 
@@ -78,7 +100,6 @@ class MCPOpenAIClient:
         """
         # Get available tools
         tools = await self.get_mcp_tools()
-
         # Initial OpenAI API call
         response = await self.openai_client.chat.completions.create(
             model=self.model,
@@ -114,6 +135,7 @@ class MCPOpenAIClient:
                     tool_call.function.name,
                     arguments=json.loads(tool_call.function.arguments),
                 )
+                print(f"Tool call result: {result}")
 
                 # Add tool response to conversation
                 messages.append(
@@ -145,14 +167,19 @@ class MCPOpenAIClient:
 class MCPOpenAIClientStdio(MCPOpenAIClient):
     """Client for interacting with OpenAI models using MCP tools."""
 
-    def __init__(self, model: str = "gpt-4o"):
+    def __init__(
+            self, 
+            model: str = "gpt-4o",
+            client: str = "openai"
+            ):
         """Initialize the OpenAI MCP client.
 
         Args:
             model: The OpenAI model to use.
+            client: The client type (openai or azure_openai).
         """
         # Initialize session and client objects
-        super().__init__(model=model)
+        super().__init__(model=model, client=client)
         self.stdio: Optional[Any] = None
         self.write: Optional[Any] = None
 
@@ -190,14 +217,19 @@ class MCPOpenAIClientStdio(MCPOpenAIClient):
 class MCPOpenAIClientSSE(MCPOpenAIClient):
     """Client for interacting with OpenAI models using MCP tools."""
 
-    def __init__(self, model: str = "gpt-4o"):
+    def __init__(
+            self, 
+            model: str = "gpt-4o",
+            client: str = "openai"
+        ):
         """Initialize the OpenAI MCP client.
 
         Args:
             model: The OpenAI model to use.
+            client: The client type (openai or azure_openai).
         """
         # Initialize session and client objects
-        super().__init__(model=model)
+        super().__init__(model=model, client=client)
 
     async def connect_to_server(
             self, 
@@ -230,11 +262,11 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
 
 async def main():
     """Main entry point for the client."""
-    client = MCPOpenAIClientSSE()
-    await client.connect_to_server("http://localhost:8050/sse", headers={})
+    client = MCPOpenAIClientSSE(client="azure_openai")
+    await client.connect_to_server("http://localhost:9000/sse", headers={})
 
     # Example: Ask about company vacation policy
-    query = "What is our company's vacation policy?"
+    query = "What is our company's PTO policy?"
     print(f"\nQuery: {query}")
 
     response = await client.prompt(query)
