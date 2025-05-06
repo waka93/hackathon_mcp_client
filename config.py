@@ -1,15 +1,20 @@
 import os
 
+from dotenv import load_dotenv
+
+load_dotenv(".env")
+
 class Config:
 
     """Configuration class for the MCP server and OpenAI client."""
 
     ENV = os.getenv("ENV", "dev")
     LOG_LEVEL = "INFO"
-    CONSUMER_ID = os.getenv("CONSUMER_ID", "27e185cc-6b29-48e8-98b3-deba9b9eb3b5")
-    LLM_PRIVATE_KEY_PATH = os.getenv("LLM_PRIVATE_KEY_PATH", "private_key.pem")
+    CONSUMER_ID = os.getenv("CONSUMER_ID")
+    LLM_PRIVATE_KEY_PATH = os.getenv("LLM_PRIVATE_KEY_PATH")
     AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://wmtllmgateway.stage.walmart.com/wmtllmgateway")
     AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+    CONFLUENCE_MCP_SERVER = os.getenv("CONFLUENCE_MCP_SERVER", "http://localhost:9000/sse")
 
     TOOL_POLICIES = {
         "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},

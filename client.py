@@ -310,7 +310,7 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
 async def main():
     """Main entry point for the client."""
     client = MCPOpenAIClientSSE(client="azure_openai")
-    await client.connect_to_server("http://localhost:9000/sse", headers={})
+    await client.connect_to_server(Config.CONFLUENCE_MCP_SERVER, headers={})
 
     while True:
         try:
