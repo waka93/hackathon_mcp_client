@@ -20,13 +20,10 @@ ENV UV_LINK_MODE=copy
 
 # Install the project's dependencies using the lockfile
 COPY --chown=10000:10001 uv.lock /app/uv.lock
-RUN uv sync --frozen --no-install-project --no-dev --no-editable -i https://pypi.ci.artifacts.walmart.com/artifactory/api/pypi/gpa-pypi/simple
- 
+RUN uv sync --no-dev --no-editable
 
 # Then, add the rest of the project source code and install it
 COPY --chown=10000:10001 . /app
-# RUN uv sync --frozen --no-dev --no-editable -i https://pypi.ci.artifacts.walmart.com/artifactory/api/pypi/gpa-pypi/simple
- 
 
 # Remove unnecessary files from the virtual environment before copying
 RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
@@ -36,7 +33,6 @@ RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
-# ENV PATH=$PATH:/app/.venv/
 
 EXPOSE 8000
 
