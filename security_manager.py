@@ -38,7 +38,7 @@ class SecurityManager:
             return await self._get_user_approval(tool_name, args)
 
         # No approval needed and rate limit not exceeded
-        return True        
+        return True
 
     def _check_rate_limit(self, tool_name: str, max_calls_per_minute: int) -> bool:
         """Check if the tool call exceeds the rate limit.

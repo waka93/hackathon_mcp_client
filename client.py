@@ -130,7 +130,7 @@ class MCPOpenAIClient:
         messages.append(assistant_message)
 
         # Handle tool calls if present
-        if assistant_message.tool_calls:
+        while assistant_message.tool_calls:
             # Process each tool call
             for tool_call in assistant_message.tool_calls:
                 if await self.security_manager.check_tool_call(
@@ -160,19 +160,17 @@ class MCPOpenAIClient:
                     }
                 )
 
-            # Get final response from OpenAI with tool results
-            final_response = await self.openai_client.chat.completions.create(
+            # Get the response from OpenAI with tool results
+            assistant_message = await self.openai_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 tools=tools,
-                tool_choice="none",  # Don't allow more tool calls
+                tool_choice="auto",
             )
-            messages.append(final_response.choices[0].message)
-            self.history.extend(messages[old_message_len:])
+            assistant_message = assistant_message.choices[0].message
+            messages.append(assistant_message)
 
-            return final_response.choices[0].message.content
-
-        # No tool calls, just return the direct response
+        # No tool calls, return the AI message
         self.history.extend(messages[old_message_len:])
         return assistant_message.content
 
@@ -328,6 +326,7 @@ async def main():
             break
 
         except Exception as e:
+            logging.error(e)
             break
 
     await client.cleanup()
