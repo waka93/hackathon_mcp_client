@@ -65,6 +65,7 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
         response_payload["responseType"] = "markdown"
         response_payload["responseAttribute"] = {}
         response.status_code = 200
+        await client.cleanup()
 
     except Exception as e:
         logging.error(e)
@@ -72,8 +73,6 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
         response_payload["statusText"] = f"Display error message for hackathon only: {str(e)}"
         response_payload["statusCode"] = status.HTTP_200_OK
         response.status_code = 424
-    finally:
-        await client.cleanup()
 
     return response_payload
 
