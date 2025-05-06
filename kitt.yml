@@ -123,16 +123,14 @@ deploy:
       helm:
         values:
           env:
-            ENV: dev
-            CONSUMER_ID: c0f9ee53-3a5a-44bb-ab44-b6ef15fb0d1a
-            LLM_PRIVATE_KEY_PATH: /etc/secrets/private_key.pem
-            AZURE_OPENAI_ENDPOINT: https://wmtllmgateway.stage.walmart.com/wmtllmgateway
-            AZURE_OPENAI_API_VERSION: 2024-08-01-preview
+            ENV_PATH: /etc/secrets/.env 
           secrets:
             config:
               akeyless:
                 path: /Prod/WCNP/homeoffice/GPA_HR_DATA_SCIENCE/mle/my_assistant/dev
             files:
+              - destination: .env
+                content: ma_mcp_atlassian_client.env
               - destination: private_key.pem
                 content: prompt_bridge_llm_key.pem 
           metadata:
