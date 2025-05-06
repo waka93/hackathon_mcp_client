@@ -20,6 +20,8 @@ sys.path.append(current_dir)  # Add the project root to sys.path
 from security_manager import SecurityManager
 from utils import generate_headers
 from config import Config
+from state import AgentState, init_agent_state
+from cache import CACHE, SingletonTTLCache
 
 logging.basicConfig(level=Config.LOG_LEVEL)
 
@@ -29,15 +31,20 @@ load_dotenv(".env")
 class MCPOpenAIClient:
 
     def __init__(
-            self, 
+            self,
             model: str = "gpt-4o",
-            client: str = "openai"
+            client: str = "openai",
+            state: AgentState = init_agent_state(), 
+            conversation_id: str = None,
+            enable_cache: bool = False
         ):
         """Initialize the OpenAI MCP client.
 
         Args:
             model: The OpenAI model to use.
             client: The client type (openai or azure_openai).
+            conversation_id: The unique identifier for each conversation
+            enable_cache: whether to enable cache. If enabled, conversation_id will be used as cache key and it can't be None.
         """
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
@@ -59,8 +66,14 @@ class MCPOpenAIClient:
         else:
             raise ValueError(f"Unsupported client type: {client}")
         self.model = model
+        self.state = state
+        self.conversation_id = conversation_id
+        if enable_cache:
+            assert self.conversation_id, "conversation_id can't be None when cache is enabled"
+        self.enable_cache = enable_cache
+
         self.security_manager = SecurityManager()
-        self.history = []
+        self.history = CACHE.get(conversation_id, [])
         self.tools = None
 
     # abstract method to connect to the mcp server
@@ -107,8 +120,24 @@ class MCPOpenAIClient:
         messages = await self._add_system_prompt(messages, Config.SYSTEM_PROMPT)
         old_message_len = len(messages)
 
-        messages.append({"role": "user", "content": query})
-
+        # Check if waiting for user approval
+        if self.state["waiting_approval"]:
+            if not self._approve(query):
+                message = "Tool call denied by the user. What else can I do for you?"
+                messages.append({"role": "assistant", "content": message})
+                self.state["waiting_approval"] = False
+                self.history.extend(messages[old_message_len:])
+                self._update_cache(
+                    CACHE,
+                    {
+                        self.conversation_id: self.history,
+                        f"{self.conversation_id}_state": self.state,
+                    }
+                )
+                return message
+            logging.debug("")
+        else:
+            messages.append({"role": "user", "content": query})
 
         logging.info(f"chat history: {messages}")
 
@@ -133,16 +162,33 @@ class MCPOpenAIClient:
         while assistant_message.tool_calls:
             # Process each tool call
             for tool_call in assistant_message.tool_calls:
-                if await self.security_manager.check_tool_call(
-                    tool_call.function.name,
-                    json.loads(tool_call.function.arguments),
-                ):
-                    logging.info(f"Tool call {tool_call.function.name} approved.")
-                else:
-                    logging.info(f"Tool call {tool_call.function.name} denied.")
-                    messages.append({"role": "assistant", "content": f"Tool call {tool_call.function.name} denied by the user."})
+                tool_name = tool_call.function.name
+                args = json.loads(tool_call.function.arguments)
+
+                # Ask for approval
+                if not self.state["waiting_approval"] and self.security_manager.need_approval(tool_name):
+                    self.state["waiting_approval"] = True
                     self.history.extend(messages[old_message_len:])
-                    return "Tool call denied by security manager."
+                    if self.enable_cache:
+                        await self._update_cache(
+                            CACHE,
+                            {
+                                self.conversation_id: self.history,
+                                f"{self.conversation_id}_state": self.state
+                            }
+                        )
+                    return f'Tool "{tool_name}" requires approval.\n Arguments: {json.dumps(args, indent=2)} \n Type "yes" or "y" to approve, anything else to deny:'
+
+                # if await self.security_manager.check_tool_call(
+                #     tool_call.function.name,
+                #     json.loads(tool_call.function.arguments),
+                # ):
+                #     logging.info(f"Tool call {tool_call.function.name} approved.")
+                # else:
+                #     logging.info(f"Tool call {tool_call.function.name} denied.")
+                #     messages.append({"role": "assistant", "content": f"Tool call {tool_call.function.name} denied by the user."})
+                #     self.history.extend(messages[old_message_len:])
+                #     return "Tool call denied by security manager."
 
                 # Execute tool call
                 result = await self.session.call_tool(
@@ -172,6 +218,8 @@ class MCPOpenAIClient:
 
         # No tool calls, return the AI message
         self.history.extend(messages[old_message_len:])
+        if self.enable_cache:
+            CACHE[self.conversation_id] = self.history
         return assistant_message.content
 
     async def _get_chat_history(self, limit: int = 20) -> list:
@@ -180,7 +228,6 @@ class MCPOpenAIClient:
         """
         
         return self.history[-limit:]
-
 
     async def _get_tools(self) -> list[dict]:
         """
@@ -206,6 +253,20 @@ class MCPOpenAIClient:
         )
         return messages
 
+    def _approve(self, query: str) -> bool:
+        if not self.state["waiting_approval"]:
+            raise ValueError("Not waiting for approval")
+        
+        return query.lower() == "y" or query.lower() == "yes"
+
+    async def _update_cache(self, cache: SingletonTTLCache, pairs: dict):
+        if not self.enable_cache:
+            return
+        
+        for key, value in pairs.items():
+            cache[key] = value
+        return
+
     async def cleanup(self):
         """Clean up resources."""
         await self.exit_stack.aclose()
@@ -214,11 +275,7 @@ class MCPOpenAIClient:
 class MCPOpenAIClientStdio(MCPOpenAIClient):
     """Client for interacting with OpenAI models using MCP tools."""
 
-    def __init__(
-            self, 
-            model: str = "gpt-4o",
-            client: str = "openai"
-            ):
+    def __init__(self, *args, **kwargs):
         """Initialize the OpenAI MCP client.
 
         Args:
@@ -226,7 +283,7 @@ class MCPOpenAIClientStdio(MCPOpenAIClient):
             client: The client type (openai or azure_openai).
         """
         # Initialize session and client objects
-        super().__init__(model=model, client=client)
+        super().__init__(*args, **kwargs)
         self.stdio: Optional[Any] = None
         self.write: Optional[Any] = None
 
@@ -264,11 +321,7 @@ class MCPOpenAIClientStdio(MCPOpenAIClient):
 class MCPOpenAIClientSSE(MCPOpenAIClient):
     """Client for interacting with OpenAI models using MCP tools."""
 
-    def __init__(
-            self, 
-            model: str = "gpt-4o",
-            client: str = "openai"
-        ):
+    def __init__(self, *args, **kwargs):
         """Initialize the OpenAI MCP client.
 
         Args:
@@ -276,7 +329,7 @@ class MCPOpenAIClientSSE(MCPOpenAIClient):
             client: The client type (openai or azure_openai).
         """
         # Initialize session and client objects
-        super().__init__(model=model, client=client)
+        super().__init__(*args, **kwargs)
 
     async def connect_to_server(
             self, 

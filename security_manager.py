@@ -15,6 +15,24 @@ class SecurityManager:
         # Rate limiting state
         self.tool_call_counts: Dict[str, Dict[str, Any]] = {}
 
+    def need_approval(self, tool_name: str) -> bool:
+        """Check if a tool call requires approval.
+
+        Args:
+            tool_name: The name of the tool being called.
+            args: Arguments passed to the tool.
+
+        Returns:
+            True if the tool call is allowed, False otherwise.
+        """
+        # Get policy for this tool (default is to require approval)
+        policy = self.tool_policies.get(tool_name, Config.DEFAULT_TOOL_POLICY)
+        
+        if policy['requires_approval']:
+            return True
+        
+        return False
+
     async def check_tool_call(self, tool_name: str, args: Any) -> bool:
         """Check if a tool call should be allowed.
 
