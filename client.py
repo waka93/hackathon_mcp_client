@@ -26,7 +26,8 @@ from cache import CACHE, SingletonTTLCache
 logging.basicConfig(level=Config.LOG_LEVEL)
 
 # Load environment variables
-load_dotenv(".env")
+env_path = os.environ.get("ENV_PATH", ".env")
+load_dotenv(env_path)
 
 class MCPOpenAIClient:
 

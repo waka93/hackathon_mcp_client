@@ -122,6 +122,8 @@ deploy:
         - cluster_id: [uswest-dev-az-301]
       helm:
         values:
+          env:
+            ENV_PATH: /etc/secrets/.env 
           secrets:
             config:
               akeyless:
