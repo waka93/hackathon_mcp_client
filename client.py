@@ -160,6 +160,7 @@ class MCPOpenAIClient:
                     }
                 )
 
+            logging.info(f"Messages: {messages}")
             # Get the response from OpenAI with tool results
             assistant_message = await self.openai_client.chat.completions.create(
                 model=self.model,
