@@ -1,0 +1,148 @@
+owner:
+  group: GPA_HR_DATA_SCIENCE
+notify:
+  slack:
+    channelName: myassistant-platform-hackathon
+
+profiles:
+  - python-web
+  # - git://GPA:genai_plugin_help_me_write_wcnp:dev:kitt-stageGates
+
+setup:
+  commitFileExcludes: ["README.md", "sr.ya?ml", "automaton_global_config.json", "loadtesting-perf/*"]
+  releaseRefs: [main]
+  releaseVersionPrefix: "v"
+  featureFlagMap:
+    buildWhenStageRefMatches: true
+    enableIstioSidecar: true
+    isGoldenSignalGateEnabled: false
+    useArtifactory: true
+    skipCodeCoverage: true
+    enableTestReporting: false
+
+alerts:
+  slackChannel:
+    - myassistant-platform-hackathon
+
+build:
+  # skip: true
+  # version: "v0.0.111"
+  buildType: docker
+  artifact: ma-mcp-atl-client
+  docker:
+    app:
+      dockerFile: Dockerfile
+      buildArgs:
+        maintainer: "Myassistant Platform"
+        maintainer_email: "myassistant-core@wal-mart.com"
+        parent_image: "docker.ci.artifacts.walmart.com/gpa-docker/peopleai/mle_ubuntu:0.5.0"
+        concord_process_id: ${concordProcessId}
+        build_url: ${BUILD_URL}
+        job_name: ${JOB_NAME}
+        job_url: ${JOB_URL}
+        jenkins_url: ${JENKINS_URL}
+        looper_run_id: ${LOOPER_RUN_ID}
+        github_repo_git_url: ${GITHUB_REPO_GIT_URL}
+        github_branch_name: '{{$.kitt.build.commitEvent.currentBranch}}'
+        looper_job_type: ${LOOPER_JOB_TYPE}
+        sonar_url: https://sonarlooperproducer.walmart.com/looper-sonar-results
+        eventType: '{{$.kitt.build.commitEvent.event}}'
+        branchName: '{{$.kitt.build.commitEvent.currentBranch}}'
+        commitId: '{{$.kitt.build.commitEvent.commitId}}'
+        repoName: '{{$.kitt.build.commitEvent.repo.name}}'
+        orgName: '{{$.kitt.build.commitEvent.repo.org}}'
+        pullRequestId: '{{$.kitt.build.commitEvent[?(@.prId)].prId}}'
+        prTargetBranch: '{{$.kitt.build.commitEvent.branch}}'
+        sonarProjKey: People.AI-genai_plugin_help_me_write_wcnp
+        sonarOpts: "-Dsonar.projectVersion={{$.kitt.build.version}} -Dsonar.sourceEncoding=UTF-8 -Dproject.settings=sonar-project.properties"
+
+deploy:
+  namespace: myassistant-platform-plugin
+  releaseType:
+    strategy: normal
+    deployTimeout: 300
+    rollbackOnError: true
+    waitForReady: true
+  gslb:
+    strategy: clusterProfile
+    lbRoutings:
+      dev:
+        matchStages: [dev]
+        cnames: [hackathon-mcp-client.ma.dev.walmart.com]
+
+  helm:
+    values:
+      secrets:
+        akeyless: true
+      networking:
+        httpsEnabled: true
+        httpEnabled: true
+        httpsRedirect: false
+        pathPrefix: /
+        internalPort: "8000"
+        externalPort: "8000"
+      readinessProbe:
+        enabled: true
+        headers: "*/*"
+        path: "/healthz/ready"
+        probeInterval: 10
+        wait: 30
+        timeout: 1
+        failureThreshold: 3
+      livenessProbe:
+        enabled: true
+        headers: "*/*"
+        path: "/healthz/live"
+        probeInterval: 5
+        wait: 15
+        failureThreshold: 3
+      min:
+        cpu: 256m
+        memory: 200Mi
+      max:
+        cpu: 512m
+        memory: 350Mi
+      scaling:
+        enabled: false
+        min: 1
+        max: 2
+
+  preDeploy:
+    - task:
+        name: messageSlack
+        text: "Starting deployment from branch={{$.kitt.build.commitEvent.currentBranch}} to stage={{$.kittExec.currentStage.name}}, clusterId={{$.kittExec.currentCluster.clusterId}}, namespace={{$.kitt.deploy.namespace}}"
+  postDeploy:
+    - task:
+        name: messageSlack
+        text: "View deploy at {{$.kittExec.currentCluster.hosts}}"
+  stages:
+    - name: dev
+      refs: [main]
+      target:
+        - cluster_id: [uswest-dev-az-301]
+      helm:
+        values:
+          secrets:
+            config:
+              akeyless:
+                path: /Prod/WCNP/homeoffice/GPA_HR_DATA_SCIENCE/mle/my_assistant/dev
+            files:
+              - destination: .env
+                content: ma_mcp_atlassian_client.env
+              - destination: private_key.pem
+                content: prompt_bridge_llm_key.pem 
+          metadata:
+            labels:
+              wm.app: HACKATHON_MCP_ATLASSIAN_CLIENT
+              wm.env: dev
+          min:
+            cpu: 256m
+            memory: 256Mi
+          max:
+            cpu: 512m
+            memory: 350Mi
+          scaling:
+            enabled: false
+            min: 1
+            max: 2
+    

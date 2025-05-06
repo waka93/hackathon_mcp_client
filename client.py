@@ -18,7 +18,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))  # Current file's direc
 sys.path.append(current_dir)  # Add the project root to sys.path
 
 from security_manager import SecurityManager
-from utils import generate_headers
+from utils import count_tokens, generate_headers
 from config import Config
 from state import AgentState, init_agent_state
 from cache import CACHE, SingletonTTLCache
@@ -159,6 +159,8 @@ class MCPOpenAIClient:
         # Get available tools
         tools = await self._get_tools()        
         
+        count_tokens(messages, self.model)
+        
         # Initial OpenAI API call
         response = await self.openai_client.chat.completions.create(
             model=self.model,
@@ -213,6 +215,8 @@ class MCPOpenAIClient:
                         "content": result.content[0].text,
                     }
                 )
+        
+            count_tokens(messages, self.model)
 
             logging.info(f"Messages: {messages}")
             # Get the response from OpenAI with tool results
