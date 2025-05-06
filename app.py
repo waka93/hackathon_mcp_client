@@ -19,7 +19,6 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from schema import InputDataModel
 from client import MCPOpenAIClientSSE
 from config import Config
-from state import init_agent_state
 
 with open("VERSION") as f:
     PROJECT_VERSION = f.read()
@@ -52,11 +51,9 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
     conversation_id = data.conversationId
     response_payload = {}
     try:
-        state = init_agent_state()
         client = MCPOpenAIClientSSE(
             model="gpt-4o",
             client="azure_openai", 
-            state=state,
             conversation_id=conversation_id,
             enable_cache=True
         )
@@ -70,7 +67,7 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
         response.status_code = 200
 
     except Exception as e:
-        logging.error(e.__traceback__)
+        logging.error(e)
         response_payload["modelResponse"] = f"Display error message for hackathon only: {str(e)}"
         response_payload["statusText"] = f"Display error message for hackathon only: {str(e)}"
         response_payload["statusCode"] = status.HTTP_200_OK

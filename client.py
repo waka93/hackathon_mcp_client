@@ -34,7 +34,6 @@ class MCPOpenAIClient:
             self,
             model: str = "gpt-4o",
             client: str = "openai",
-            state: AgentState = init_agent_state(), 
             conversation_id: str = None,
             enable_cache: bool = False
         ):
@@ -66,7 +65,7 @@ class MCPOpenAIClient:
         else:
             raise ValueError(f"Unsupported client type: {client}")
         self.model = model
-        self.state = state
+        self.state = CACHE.get(f"{conversation_id}_state", init_agent_state())
         self.conversation_id = conversation_id
         if enable_cache:
             assert self.conversation_id, "conversation_id can't be None when cache is enabled"
@@ -135,7 +134,23 @@ class MCPOpenAIClient:
                     }
                 )
                 return message
-            logging.debug("")
+            
+            logging.debug(f"Tool call {self.state['waiting_approval']['name']} approved by the user")
+            # Execute tool call
+            result = await self.session.call_tool(
+                self.state["waiting_approval"]["name"],
+                self.state["waiting_approval"]["args"],
+            )
+            logging.debug(f"Tool call result: {result}")
+
+            # Add tool response to conversation
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": self.state["waiting_approval"]["id"],
+                    "content": result.content[0].text,
+                }
+            )
         else:
             messages.append({"role": "user", "content": query})
 
@@ -167,7 +182,11 @@ class MCPOpenAIClient:
 
                 # Ask for approval
                 if not self.state["waiting_approval"] and self.security_manager.need_approval(tool_name):
-                    self.state["waiting_approval"] = True
+                    self.state["waiting_approval"] = {
+                        "name": tool_name,
+                        "args": args,
+                        "id": tool_call.id
+                    }
                     self.history.extend(messages[old_message_len:])
                     if self.enable_cache:
                         await self._update_cache(
@@ -178,17 +197,6 @@ class MCPOpenAIClient:
                             }
                         )
                     return f'Tool "{tool_name}" requires approval.\n Arguments: {json.dumps(args, indent=2)} \n Type "yes" or "y" to approve, anything else to deny:'
-
-                # if await self.security_manager.check_tool_call(
-                #     tool_call.function.name,
-                #     json.loads(tool_call.function.arguments),
-                # ):
-                #     logging.info(f"Tool call {tool_call.function.name} approved.")
-                # else:
-                #     logging.info(f"Tool call {tool_call.function.name} denied.")
-                #     messages.append({"role": "assistant", "content": f"Tool call {tool_call.function.name} denied by the user."})
-                #     self.history.extend(messages[old_message_len:])
-                #     return "Tool call denied by security manager."
 
                 # Execute tool call
                 result = await self.session.call_tool(
