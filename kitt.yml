@@ -128,7 +128,9 @@ deploy:
                 path: /Prod/WCNP/homeoffice/GPA_HR_DATA_SCIENCE/mle/my_assistant/dev
             files:
               - destination: .env
-                content: hackathon_mcp_atlassian.env
+                content: ma_mcp_atlassian_client.env
+              - destination: private_key.pem
+                content: prompt_bridge_llm_key.pem 
           metadata:
             labels:
               wm.app: HACKATHON_MCP_ATLASSIAN_CLIENT
