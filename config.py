@@ -4,29 +4,35 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 
-class Config:
 
+class Config:
     """Configuration class for the MCP server and OpenAI client."""
 
     ENV = os.getenv("ENV", "dev")
     LOG_LEVEL = "INFO"
     CONSUMER_ID = os.getenv("CONSUMER_ID")
     LLM_PRIVATE_KEY_PATH = os.getenv("LLM_PRIVATE_KEY_PATH")
-    AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "https://wmtllmgateway.stage.walmart.com/wmtllmgateway")
-    AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
-    CONFLUENCE_MCP_SERVER = os.getenv("CONFLUENCE_MCP_SERVER", "http://localhost:9000/sse")
+    AZURE_OPENAI_ENDPOINT = os.getenv(
+        "AZURE_OPENAI_ENDPOINT", "https://wmtllmgateway.stage.walmart.com/wmtllmgateway"
+    )
+    AZURE_OPENAI_API_VERSION = os.getenv(
+        "AZURE_OPENAI_API_VERSION", "2024-08-01-preview"
+    )
+    CONFLUENCE_MCP_SERVER = os.getenv(
+        "CONFLUENCE_MCP_SERVER", "http://localhost:9000/sse"
+    )
 
     TOOL_POLICIES = {
-        "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_get_page": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_get_page_children": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_get_page_ancestors": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_get_comments": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_get_labels": {"requires_approval": False, "max_calls_per_minute": 20},
-        "confluence_create_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        "confluence_update_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        "confluence_delete_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        "confluence_add_label": {"requires_approval": True, "max_calls_per_minute": 5},
+        # "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_get_page": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_get_page_children": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_get_page_ancestors": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_get_comments": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_get_labels": {"requires_approval": False, "max_calls_per_minute": 20},
+        # "confluence_create_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        # "confluence_update_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        # "confluence_delete_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        # "confluence_add_label": {"requires_approval": True, "max_calls_per_minute": 5},
     }
 
     DEFAULT_TOOL_POLICY = {"requires_approval": True, "max_calls_per_minute": 5}

@@ -10,6 +10,8 @@ dependencies = [
     "fastapi>=0.115.12",
     "mcp>=1.7.1",
     "openai>=1.77.0",
+    "orjson>=3.10.18",
     "pycryptodome>=3.22.0",
     "python-dotenv>=1.1.0",
+    "tiktoken>=0.9.0",
 ]

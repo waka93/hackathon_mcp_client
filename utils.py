@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
+import orjson
 import time
 import os
 import logging
+import tiktoken
 from base64 import b64encode
 
 from Crypto.Hash import SHA256
@@ -147,3 +149,35 @@ def generate_headers(
             "Either an api_key must be provided or private_key_path, consumer_id, " "and env must be provided."
         )
     return header
+
+
+# Cache encoding for reuse
+ENCODING_CACHE = {}
+
+
+def get_encoding(model: str):
+    """Get or cache the encoding for a model."""
+    if model not in ENCODING_CACHE:
+        ENCODING_CACHE[model] = tiktoken.encoding_for_model(model)
+    return ENCODING_CACHE[model]
+
+
+def count_tokens(messages, model="gpt-4"):
+    """Count tokens for a list of messages."""
+    encoding = get_encoding(model)  # Reuse cached encoding
+    start_time = time.time()
+    
+    # Serialize all messages into a single string
+    total_tokens = 0
+    for message in messages:
+        try:
+            # Convert message to JSON string
+            message_str = orjson.dumps(message).decode("utf-8")
+        except Exception:
+            message_str = str(message)
+            
+        total_tokens += len(encoding.encode(message_str)) 
+
+    elapsed_time = time.time() - start_time
+    logging.info(f"Token count for model {model}: {total_tokens} (elapsed time: {elapsed_time:.2f}s)")
+    return total_tokens
