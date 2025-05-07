@@ -57,7 +57,7 @@ class MCPOpenAIClient:
                 consumer_id=Config.CONSUMER_ID,
                 env=Config.ENV,
             )
-            self.openai_client = client = AsyncAzureOpenAI(
+            self.openai_client = AsyncAzureOpenAI(
                 api_key=Config.CONSUMER_ID,
                 api_version=Config.AZURE_OPENAI_API_VERSION,
                 azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
@@ -117,7 +117,7 @@ class MCPOpenAIClient:
 
         # Initialize message list with chat history, system prompt and latest user query
         messages = await self._get_chat_history(20)
-        messages = await self._add_system_prompt(messages, Config.SYSTEM_PROMPT)
+        messages = await self._add_system_prompt(messages, Config.CONFLUENCE_SYSTEM_PROMPT)
         old_message_len = len(messages)
 
         # Check if waiting for user approval
