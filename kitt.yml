@@ -138,11 +138,11 @@ deploy:
               wm.app: HACKATHON_MCP_ATLASSIAN_CLIENT
               wm.env: dev
           min:
-            cpu: 256m
-            memory: 256Mi
-          max:
             cpu: 512m
-            memory: 350Mi
+            memory: 512Mi
+          max:
+            cpu: 768m
+            memory: 1Gi
           scaling:
             enabled: false
             min: 1
