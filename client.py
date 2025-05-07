@@ -124,6 +124,7 @@ class MCPOpenAIClient:
         if self.state["waiting_approval"]:
             if not self._approve(query):
                 message = "Tool call denied by the user. What else can I do for you?"
+                self.history = self.history[:-1] # remove last tool call message
                 messages.append({"role": "assistant", "content": message})
                 self.state["waiting_approval"] = False
                 self.history.extend(messages[old_message_len:])

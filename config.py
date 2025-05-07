@@ -24,16 +24,16 @@ class Config:
     )
 
     TOOL_POLICIES = {
-        # "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_get_page": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_get_page_children": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_get_page_ancestors": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_get_comments": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_get_labels": {"requires_approval": False, "max_calls_per_minute": 20},
-        # "confluence_create_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        # "confluence_update_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        # "confluence_delete_page": {"requires_approval": True, "max_calls_per_minute": 5},
-        # "confluence_add_label": {"requires_approval": True, "max_calls_per_minute": 5},
+        "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_get_page": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_get_page_children": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_get_page_ancestors": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_get_comments": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_get_labels": {"requires_approval": False, "max_calls_per_minute": 20},
+        "confluence_create_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        "confluence_update_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        "confluence_delete_page": {"requires_approval": True, "max_calls_per_minute": 5},
+        "confluence_add_label": {"requires_approval": True, "max_calls_per_minute": 5},
     }
 
     DEFAULT_TOOL_POLICY = {"requires_approval": True, "max_calls_per_minute": 5}
