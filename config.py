@@ -22,6 +22,9 @@ class Config:
     CONFLUENCE_MCP_SERVER = os.getenv(
         "CONFLUENCE_MCP_SERVER", "http://localhost:9000/sse"
     )
+    GRAFANA_MCP_SERVER = os.getenv(
+        "GRAFANA_MCP_SERVER", "http://localhost:9000/sse"
+    )
 
     TOOL_POLICIES = {
         "confluence_search": {"requires_approval": False, "max_calls_per_minute": 20},

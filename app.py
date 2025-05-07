@@ -15,9 +15,10 @@ import uvicorn
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
+from agents.mcp import MCPServerSse
 
 from schema import InputDataModel
-from client import MCPOpenAIClientSSE
+from agent import MCPAgent
 from config import Config
 
 with open("VERSION") as f:
@@ -51,21 +52,40 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
     conversation_id = data.conversationId
     response_payload = {}
     try:
-        client = MCPOpenAIClientSSE(
+        agent = MCPAgent(
+            name="Confluence MCP (Model Context Protocol) agent",
             model="gpt-4o",
-            client="azure_openai", 
-            conversation_id=conversation_id,
-            enable_cache=True
+            instructions=Config.CONFLUENCE_SYSTEM_PROMPT,
+            llm_client=None,
+            mcp_servers=[
+                MCPServerSse(
+                    name="Confluence MCP server",
+                    params={
+                        "url": Config.CONFLUENCE_MCP_SERVER,
+                    },
+                    cache_tools_list=True,
+                ),
+                # MCPServerSse(
+                #     name="Grafana MCP server",
+                #     params={
+                #         "url": Config.GRAFANA_MCP_SERVER,
+                #     },
+                #     cache_tools_list=True,
+                # )
+            ],
+            conversation_cache=True,
+            cache_key=conversation_id,
         )
-        await client.connect_to_server(Config.CONFLUENCE_MCP_SERVER, headers={})
-        client_response = await client.prompt(query)
+        await agent.connect()
+        client_response = await agent.prompt(query)
+        await agent.cleanup()
+
         response_payload["modelResponse"] = client_response
         response_payload["statusText"] = "Success!"
         response_payload["statusCode"] = status.HTTP_200_OK
         response_payload["responseType"] = "markdown"
         response_payload["responseAttribute"] = {}
         response.status_code = 200
-        await client.cleanup()
 
     except Exception as e:
         logging.error(e)
