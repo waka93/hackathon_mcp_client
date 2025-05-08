@@ -31,7 +31,5 @@ mv .env.template .env
 ### Start MCP Server
 Start your MCP server (not included in this repo)
 
-Update `client.py` with the correct MCP server url and transport
-
 Run the client with
-`uv run client.py`
+`uv run agent.py`
