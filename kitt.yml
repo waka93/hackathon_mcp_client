@@ -132,7 +132,7 @@ deploy:
               - destination: .env
                 content: ma_mcp_atlassian_client.env
               - destination: private_key.pem
-                content: prompt_bridge_llm_key.pem 
+                content: people_data_llm_private_key.pem 
           metadata:
             labels:
               wm.app: HACKATHON_MCP_ATLASSIAN_CLIENT
