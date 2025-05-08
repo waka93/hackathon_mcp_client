@@ -5,6 +5,7 @@ import httpx
 from agents import Agent, Runner, OpenAIChatCompletionsModel, set_tracing_disabled
 from agents.mcp import MCPServer, MCPServerSse
 from agents.model_settings import ModelSettings
+from agents.exceptions import AgentsException
 from openai import AsyncAzureOpenAI
 
 from config import Config
@@ -76,22 +77,26 @@ async def main():
     agent = MCPAgent(
         name="Confluence MCP (Model Context Protocol) agent",
         model="gpt-4o",
-        instructions=Config.CONFLUENCE_SYSTEM_PROMPT,
+        instructions=Config.SYSTEM_PROMPT,
         llm_client=None,
         mcp_servers=[
             MCPServerSse(
                 name="Confluence MCP server",
                 params={
                     "url": Config.CONFLUENCE_MCP_SERVER,
+                    "timeout": 30,
                 },
                 cache_tools_list=True,
+                client_session_timeout_seconds=30,
             ),
             MCPServerSse(
                 name="Grafana MCP server",
                 params={
                     "url": Config.GRAFANA_MCP_SERVER,
+                    "timeout": 30,
                 },
                 cache_tools_list=True,
+                client_session_timeout_seconds=30,
             )
         ],
     )
@@ -101,7 +106,7 @@ async def main():
     while True:
         try:
             logging.info("Enter your question:")
-            query = input().strip().lower()
+            query = input().strip()
             messages.append({"role": "user", "content": query})
             logging.info(f"Chat history: {messages}")
             response = await agent.prompt(messages)
@@ -112,6 +117,9 @@ async def main():
             await agent.cleanup()
             break
 
+        except AgentsException as e:
+            logging.error(e)
+            messages.append({"role": "assistant", "content": str(e)})
 
 if __name__ == "__main__":
     import asyncio
