@@ -59,6 +59,7 @@ Current timestamp in isoformat is {datetime.now().replace(microsecond=0).isoform
 ✅ LOG (LOKI) QUERIES
 Use `list_datasources` to find the `datasourceUid` if user provides a datasource name.
 Loki search is case sensitive. Make sure you preserve the casing from the user.
+Default to `limit` 10 if user doesn't specify.
 If there are no results found. Notify the user that Loki search is case sensitive.
 
 ════════════════════════════════════════════════════════
