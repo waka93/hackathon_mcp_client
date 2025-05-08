@@ -86,54 +86,6 @@ class MCPAgent:
             CACHE[self.cache_key] = conversations
         return result.final_output
 
-
-async def instantiate_agent():
-    headers = generate_headers(
-        private_key_path=Config.LLM_PRIVATE_KEY_PATH,
-        consumer_id=Config.CONSUMER_ID,
-        env=Config.ENV,
-    )
-
-    openai_client = AsyncAzureOpenAI(
-        api_key=Config.CONSUMER_ID,
-        api_version=Config.AZURE_OPENAI_API_VERSION,
-        azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
-        http_client = httpx.AsyncClient(verify=False, headers=headers)
-    )
-
-    confluence_mcp = MCPServerSse(
-        name="Confluence MCP server",
-        params={
-            "url": Config.CONFLUENCE_MCP_SERVER,
-        },
-        cache_tools_list=True,
-    )
-    await confluence_mcp.connect()
-
-    grafana_mcp = MCPServerSse(
-        name="Grafana MCP server",
-        params={
-            "url": Config.GRAFANA_MCP_SERVER,
-        },
-        cache_tools_list=True,
-    )
-    await grafana_mcp.connect()
-
-    agent = Agent(
-        name="Confluence MCP (Model Context Protocol) agent",
-        instructions=Config.CONFLUENCE_SYSTEM_PROMPT,
-        model=OpenAIChatCompletionsModel(
-            model="gpt-4o",
-            openai_client=openai_client
-        ),
-        model_settings=ModelSettings(tool_choice="auto"),
-        mcp_servers=[
-            confluence_mcp,
-        ]
-    )
-
-    return agent
-
 async def main():
     agent = MCPAgent(
         name="Confluence MCP (Model Context Protocol) agent",

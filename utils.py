@@ -181,3 +181,27 @@ def count_tokens(messages, model="gpt-4"):
     elapsed_time = time.time() - start_time
     logging.info(f"Token count for model {model}: {total_tokens} (elapsed time: {elapsed_time:.2f}s)")
     return total_tokens
+
+def format_chat_history(chat_history: list[dict]) -> list[dict]:
+    """Format chat history to OpenAI standard
+    Parameters:
+        chat_history: List[Dict[str, str]]
+            user chat history NOT including the latest user prompt
+            key         |   value
+            messageType |   [USER | SYSTEM]
+            createdAt   |   timestamp string
+            text        |   string
+    Returns:
+        List[Dict[str, str]]
+        key     | value
+        role    | [user | assistant] # we don't have system role type because we handle system prompt seperately
+        text    | string
+    """
+    result = []
+    for message in chat_history:
+        if message["messageType"] == "USER":
+            role = "user"
+        else:
+            role = "assistant"
+        result.append({"role": role, "content": message["text"]})
+    return result

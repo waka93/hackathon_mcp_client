@@ -50,6 +50,7 @@ app.logger = logger
 async def prompt(data: InputDataModel, request: Request, response: Response):
     query = data.userInput
     conversation_id = data.conversationId
+    chat_history = data.chatHistory
     response_payload = {}
     try:
         agent = MCPAgent(
@@ -65,13 +66,13 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
                     },
                     cache_tools_list=True,
                 ),
-                # MCPServerSse(
-                #     name="Grafana MCP server",
-                #     params={
-                #         "url": Config.GRAFANA_MCP_SERVER,
-                #     },
-                #     cache_tools_list=True,
-                # )
+                MCPServerSse(
+                    name="Grafana MCP server",
+                    params={
+                        "url": Config.GRAFANA_MCP_SERVER,
+                    },
+                    cache_tools_list=True,
+                )
             ],
             conversation_cache=True,
             cache_key=conversation_id,

@@ -34,6 +34,8 @@ RUN find /app/.venv -name '__pycache__' -type d -exec rm -rf {} + && \
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+RUN bash cert_fix.sh
+
 EXPOSE 8000
 
 CMD [ "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000" ]
