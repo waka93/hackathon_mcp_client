@@ -1,4 +1,5 @@
 import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 import httpx
 from agents import Agent, Runner, OpenAIChatCompletionsModel, set_tracing_disabled
@@ -8,7 +9,6 @@ from openai import AsyncAzureOpenAI
 
 from config import Config
 from utils import generate_headers
-from cache import CACHE
 
 set_tracing_disabled(True)
 
@@ -22,8 +22,6 @@ class MCPAgent:
         instructions: str, 
         llm_client: AsyncAzureOpenAI = None,
         mcp_servers: list[MCPServer] = [],
-        conversation_cache: bool = False,
-        cache_key: str = None,
     ):
         """
         Initialize the MCPAgent with the given parameters.
@@ -35,9 +33,6 @@ class MCPAgent:
         :param conversation_cache: Whether to cache conversations.
         :param cache_key: Key for the conversation cache.
         """
-
-        if conversation_cache:
-            assert cache_key is not None, "Cache key must be provided if conversation cache is enabled."
 
         if llm_client is None:
             headers = generate_headers(
@@ -62,9 +57,6 @@ class MCPAgent:
             mcp_servers=mcp_servers
         )
 
-        self.conversation_cache = conversation_cache
-        self.cache_key = cache_key
-
     async def connect(self):
         """Connect to the MCP server."""
         for server in self.agent.mcp_servers:
@@ -75,15 +67,9 @@ class MCPAgent:
         for server in self.agent.mcp_servers:
             await server.cleanup()
 
-    async def prompt(self, query: str):
+    async def prompt(self, messages: list[dict]):
         """Prompt the agent with a query."""
-        if self.conversation_cache:
-            conversations = CACHE.get(self.cache_key, [])
-        conversations.append({"role": "user", "content": query})
-        result = await Runner.run(starting_agent=self.agent, input=conversations)
-        conversations = result.to_input_list()
-        if self.conversation_cache:
-            CACHE[self.cache_key] = conversations
+        result = await Runner.run(starting_agent=self.agent, input=messages)
         return result.final_output
 
 async def main():
@@ -100,25 +86,27 @@ async def main():
                 },
                 cache_tools_list=True,
             ),
-            # MCPServerSse(
-            #     name="Grafana MCP server",
-            #     params={
-            #         "url": Config.GRAFANA_MCP_SERVER,
-            #     },
-            #     cache_tools_list=True,
-            # )
+            MCPServerSse(
+                name="Grafana MCP server",
+                params={
+                    "url": Config.GRAFANA_MCP_SERVER,
+                },
+                cache_tools_list=True,
+            )
         ],
-        conversation_cache=True,
-        cache_key="local",
     )
     await agent.connect()
 
+    messages = []
     while True:
         try:
-            logging.warning("Enter your question:")
+            logging.info("Enter your question:")
             query = input().strip().lower()
-            response = await agent.prompt(query)
-            logging.warning(f"Agent response: {response}")
+            messages.append({"role": "user", "content": query})
+            logging.info(f"Chat history: {messages}")
+            response = await agent.prompt(messages)
+            messages.append({"role": "assistant", "content": response})
+            logging.info(f"Agent response: {response}")
 
         except KeyboardInterrupt:
             await agent.cleanup()

@@ -20,6 +20,7 @@ from agents.mcp import MCPServerSse
 from schema import InputDataModel
 from agent import MCPAgent
 from config import Config
+from utils import format_chat_history
 
 with open("VERSION") as f:
     PROJECT_VERSION = f.read()
@@ -49,8 +50,8 @@ app.logger = logger
 @app.post("/prompt", include_in_schema=True)
 async def prompt(data: InputDataModel, request: Request, response: Response):
     query = data.userInput
-    conversation_id = data.conversationId
-    chat_history = data.chatHistory
+    messages = format_chat_history(data.chatHistory)
+    messages.append({"role": "user", "content": query})
     response_payload = {}
     try:
         agent = MCPAgent(
@@ -74,11 +75,9 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
                     cache_tools_list=True,
                 )
             ],
-            conversation_cache=True,
-            cache_key=conversation_id,
         )
         await agent.connect()
-        client_response = await agent.prompt(query)
+        client_response = await agent.prompt(messages)
         await agent.cleanup()
 
         response_payload["modelResponse"] = client_response
