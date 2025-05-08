@@ -120,6 +120,8 @@ async def main():
         except AgentsException as e:
             logging.error(e)
             messages.append({"role": "assistant", "content": str(e)})
+            await agent.cleanup()
+            await agent.connect()
 
 if __name__ == "__main__":
     import asyncio

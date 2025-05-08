@@ -55,24 +55,28 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
     response_payload = {}
     try:
         agent = MCPAgent(
-            name="Confluence MCP (Model Context Protocol) agent",
+            name="MCP (Model Context Protocol) agent",
             model="gpt-4o",
-            instructions=Config.CONFLUENCE_SYSTEM_PROMPT,
+            instructions=Config.SYSTEM_PROMPT,
             llm_client=None,
             mcp_servers=[
                 MCPServerSse(
                     name="Confluence MCP server",
                     params={
                         "url": Config.CONFLUENCE_MCP_SERVER,
+                        "timeout": 30,
                     },
                     cache_tools_list=True,
+                    client_session_timeout_seconds=30,
                 ),
                 MCPServerSse(
                     name="Grafana MCP server",
                     params={
                         "url": Config.GRAFANA_MCP_SERVER,
+                        "timeout": 30,
                     },
                     cache_tools_list=True,
+                    client_session_timeout_seconds=30,
                 )
             ],
         )
