@@ -105,23 +105,21 @@ async def main():
     messages = []
     while True:
         try:
-            logging.info("Enter your question:")
+            logging.info("Enter your question:\n")
             query = input().strip()
             messages.append({"role": "user", "content": query})
             logging.info(f"Chat history: {messages}")
             response = await agent.prompt(messages)
             messages.append({"role": "assistant", "content": response})
-            logging.info(f"Agent response: {response}")
+            logging.info(f"Agent response: \n{response}\n")
 
         except KeyboardInterrupt:
             await agent.cleanup()
             break
 
         except AgentsException as e:
-            logging.error(e)
-            messages.append({"role": "assistant", "content": str(e)})
-            await agent.cleanup()
-            await agent.connect()
+            logging.error(f"Agent exception: {e}")
+            messages.append({"role": "assistant", "content": f"\n{str(e)}\n"})
 
 if __name__ == "__main__":
     import asyncio
