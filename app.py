@@ -53,6 +53,7 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
     messages = format_chat_history(data.chatHistory)
     messages.append({"role": "user", "content": query})
     response_payload = {}
+    client_response = None
     try:
         agent = MCPAgent(
             name="MCP (Model Context Protocol) agent",
@@ -93,10 +94,15 @@ async def prompt(data: InputDataModel, request: Request, response: Response):
 
     except Exception as e:
         logging.error(e)
-        response_payload["modelResponse"] = f"Display error message for hackathon only: {str(e)}"
+        if client_response:
+            response_payload["modelResponse"] = client_response
+        else:
+            response_payload["modelResponse"] = f"Display error message for hackathon only: {str(e)}"
+        response_payload["responseType"] = "markdown"
+        response_payload["responseAttribute"] = {}
         response_payload["statusText"] = f"Display error message for hackathon only: {str(e)}"
         response_payload["statusCode"] = status.HTTP_200_OK
-        response.status_code = 424
+        response.status_code = 200
 
     return response_payload
 
