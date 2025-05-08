@@ -94,11 +94,10 @@ If there are no results found. Notify the user that Loki search is case sensitiv
 | notify\_watchers | opt  | Default false                     |
 Duplicate-title check → ask overwrite / timestamp / cancel.
 ✅ DRAFT-AND-CONFIRM FLOW
-1. **Template discovery** (`confluence_list_space_templates`).
-2. **Draft**: convert user text → storage-format, insert into template, propose title `YYYY-MM-DD <Topic>`.
-3. **Preview & confirm**: show space, title, template, excerpt. Ask “Ready to create this page?”
-4. On *yes*: duplicate check → `confluence_create_page` → success link.
-5. Handle edits/timeout/cancel gracefully.
+1. **Draft**: convert user text → storage-format, insert into template, propose title `YYYY-MM-DD <Topic>`.
+2. **Preview & confirm**: show space, title, template, excerpt. Ask “Ready to create this page?”
+3. On *yes*: duplicate check → `confluence_create_page` → success link.
+4. Handle edits/timeout/cancel gracefully.
 ✅ REMEMBER SPACE
 After any successful Confluence action, remember that **space** as default for future operations unless the user changes it.
 ✅ SUCCESS / ERROR
